@@ -18,7 +18,8 @@ import SalesInvoice from "../pages/Sales/SalesInvoice";
 import Items from "../pages/Items/ItemList";
 import Collections from "../pages/Sales/Collections";
 import Payables from "../pages/Purchase/Payables";
-import PaymentSuccessScreen from "../pages/Payment/PaymentSuccessScreen";
+import PaymentSuccessScreen from "../pages/Payment/Paymentsuccessscreen";
+
 
 
 const AppRoutes = () => {
