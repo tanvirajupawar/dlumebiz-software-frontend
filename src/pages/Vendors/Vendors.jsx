@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const indianStates = [
   { code: "01", name: "Jammu & Kashmir" }, { code: "02", name: "Himachal Pradesh" },
@@ -20,8 +22,8 @@ const indianStates = [
 ];
 
 const businessTypes = [
-  "Proprietorship","Partnership","LLP","Private Limited",
-  "Public Limited","OPC","Trust","HUF","Other"
+  "Proprietorship", "Partnership", "LLP", "Private Limited",
+  "Public Limited", "OPC", "Trust", "HUF", "Other"
 ];
 
 const inputStyle = {
@@ -52,37 +54,30 @@ const emptyForm = {
   vendor_state: "",
   vendor_state_code: "",
   vendor_pincode: "",
+  opening_balance: 0,
 };
 
 const validateGST = (v) =>
   /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v);
-
 const validatePAN = (v) =>
   /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
-
 const validateEmail = (v) =>
   !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-
 const validatePhone = (v) =>
   !v || /^[6-9][0-9]{9}$/.test(v);
-
 const validatePincode = (v) =>
   !v || /^[1-9][0-9]{5}$/.test(v);
 
-/* ---------- Components ---------- */
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Field({ label, required, children }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       <label style={{
-        fontSize: "12px",
-        fontWeight: 700,
-        letterSpacing: "0.05em",
-        color: "#111827",
-        textTransform: "uppercase",
-        marginBottom: "5px"
+        fontSize: "12px", fontWeight: 700, letterSpacing: "0.05em",
+        color: "#111827", textTransform: "uppercase", display: "block", marginBottom: "5px",
       }}>
-        {label}{required && <span style={{ color: "#ef4444" }}>*</span>}
+        {label}{required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
       </label>
       {children}
     </div>
@@ -98,13 +93,25 @@ function TextInput({ value, onChange, placeholder, type = "text", readOnly }) {
       placeholder={placeholder}
       readOnly={readOnly}
       style={{ ...inputStyle, cursor: readOnly ? "not-allowed" : "text" }}
+      onFocus={(e) => { if (!readOnly) e.target.style.borderColor = "#3b82f6"; }}
+      onBlur={(e) => { e.target.style.borderColor = "#e5e7eb"; }}
     />
   );
 }
 
 function SelectInput({ value, onChange, options, placeholder }) {
   return (
-    <select value={value} onChange={onChange} style={inputStyle}>
+    <select
+      value={value}
+      onChange={onChange}
+      style={{
+        ...inputStyle,
+        appearance: "none",
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 12px center",
+      }}
+    >
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>{o.label}</option>
@@ -115,301 +122,296 @@ function SelectInput({ value, onChange, options, placeholder }) {
 
 function Section({ title, children }) {
   return (
-    <div style={{
-      background:"#fff",
-      borderRadius:"12px",
-      border:"1.5px solid #e5e7eb",
-      marginBottom:"20px"
-    }}>
-      <div style={{
-        padding:"14px 20px",
-        background:"#f8fafc",
-        borderBottom:"1.5px solid #e5e7eb",
-        fontWeight:700
-      }}>
-   {title}
+    <div style={{ background: "#fff", borderRadius: "12px", border: "1.5px solid #e5e7eb", overflow: "hidden", marginBottom: "20px" }}>
+      <div style={{ padding: "14px 20px", background: "#f8fafc", borderBottom: "1.5px solid #e5e7eb", display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#374151", textTransform: "uppercase" }}>{title}</span>
       </div>
-      <div style={{ padding:"20px" }}>{children}</div>
+      <div style={{ padding: "20px" }}>{children}</div>
     </div>
   );
 }
 
-/* ---------- Main Component ---------- */
+function CharBoxInput({ value, onChange, length, numericOnly = false }) {
+  return (
+    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+      {Array.from({ length }).map((_, index) => (
+        <input
+          key={index}
+          maxLength={1}
+          value={value[index] || ""}
+          onChange={(e) => {
+            const raw = numericOnly
+              ? e.target.value.replace(/[^0-9]/g, "")
+              : e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+            const newVal = value.substring(0, index) + raw + value.substring(index + 1);
+            onChange(newVal);
+            if (raw && e.target.nextSibling) e.target.nextSibling.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" && !value[index] && e.target.previousSibling)
+              e.target.previousSibling.focus();
+            if (e.key === "ArrowLeft" && e.target.previousSibling) {
+              e.preventDefault();
+              e.target.previousSibling.focus();
+            }
+            if (e.key === "ArrowRight" && e.target.nextSibling) {
+              e.preventDefault();
+              e.target.nextSibling.focus();
+            }
+          }}
+          style={{
+            width: "32px", height: "36px", textAlign: "center",
+            fontSize: "14px", fontWeight: 600,
+            border: "1.5px solid #d1d5db", borderRadius: "6px",
+            outline: "none", background: "#fff", color: "#111827",
+          }}
+          onFocus={(e) => { e.target.style.borderColor = "#3b82f6"; }}
+          onBlur={(e) => { e.target.style.borderColor = "#d1d5db"; }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ErrorMsg({ field, errors }) {
+  if (!errors[field]) return null;
+  return (
+    <span style={{ fontSize: "11px", color: "#ef4444", marginTop: "3px", display: "block" }}>
+      {errors[field]}
+    </span>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Vendors() {
+  const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
+  const navigate = useNavigate();
 
-const [form,setForm]=useState(emptyForm);
+  const update = (field, value) => {
+    if (field === "vendor_state") {
+      const st = indianStates.find((s) => s.name === value);
+      setForm((prev) => ({
+        ...prev,
+        vendor_state: value,
+        vendor_state_code: st ? st.code : "",
+      }));
+    } else {
+      setForm((prev) => ({ ...prev, [field]: value }));
+    }
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
 
-const update=(field,value)=>{
+  const validate = () => {
+    const e = {};
+    if (!form.vendor_name.trim()) e.vendor_name = "Vendor name is required";
+    if (form.vendor_gstin.length === 15 && !validateGST(form.vendor_gstin)) e.vendor_gstin = "Invalid GSTIN format";
+    if (form.vendor_pan.length === 10 && !validatePAN(form.vendor_pan)) e.vendor_pan = "Invalid PAN format";
+    if (!validatePhone(form.vendor_phone)) e.vendor_phone = "Invalid mobile number";
+    if (!validateEmail(form.vendor_email)) e.vendor_email = "Invalid email address";
 
-if(field==="vendor_state"){
-const st=indianStates.find((s)=>s.name===value);
+    if (!form.vendor_state) e.vendor_state = "State is required";
+    if (!validatePincode(form.vendor_pincode)) e.vendor_pincode = "Invalid pincode";
+    return e;
+  };
 
-setForm(prev=>({
-...prev,
-vendor_state:value,
-vendor_state_code:st?st.code:""
-}));
-}
-else{
-setForm(prev=>({
-...prev,
-[field]:value
-}));
-}
+const handleSave = async () => {
+  const e = validate();
+  if (Object.keys(e).length) {
+    setErrors(e);
+    return;
+  }
 
+  try {
+    const res = await axios.post("http://localhost:8000/api/vendor", form);
 
+if (res.data.success) {
+  alert("Vendor saved successfully"); 
 
-};
+  setForm(emptyForm);
 
-const validate=()=>{
-const e={};
-
-if(!form.vendor_name.trim())
-e.vendor_name="Vendor name required";
-
-if(form.vendor_gstin.length===15 && !validateGST(form.vendor_gstin))
-e.vendor_gstin="Invalid GSTIN";
-
-if(form.vendor_pan.length===10 && !validatePAN(form.vendor_pan))
-e.vendor_pan="Invalid PAN";
-
-if(!validatePhone(form.vendor_phone))
-e.vendor_phone="Invalid phone";
-
-if(!validateEmail(form.vendor_email))
-e.vendor_email="Invalid email";
-
-if(!form.vendor_address_line1.trim())
-e.vendor_address_line1="Address required";
-
-if(!form.vendor_city.trim())
-e.vendor_city="City required";
-
-if(!form.vendor_state)
-e.vendor_state="State required";
-
-if(!validatePincode(form.vendor_pincode))
-e.vendor_pincode="Invalid pincode";
-
-return e;
-};
-
-const handleSave=()=>{
-
-const e=validate();
-
-if(Object.keys(e).length){
-
-return;
+  navigate("/vendor-list"); 
 }
 
-
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save vendor");
+  }
 };
 
-const grid2={
-display:"grid",
-gridTemplateColumns:"1fr 1fr",
-gap:"16px"
-};
+  const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" };
 
-return (
+  return (
+    <div style={{ width: "100%", margin: "0" }}>
 
-<div style={{width:"100%"}}>
+     
 
-{/* Header */}
+      {/* Basic Information */}
+      <Section title="Basic Information">
+        <div style={grid2}>
+          <Field label="Vendor Name" required>
+            <TextInput
+              value={form.vendor_name}
+              onChange={(e) => update("vendor_name", e.target.value)}
+              placeholder="Supplier name"
+            />
+            <ErrorMsg field="vendor_name" errors={errors} />
+          </Field>
 
-<div style={{marginBottom:"24px"}}>
-<h1 style={{fontSize:"24px",fontWeight:800}}>
-Add Vendor
-</h1>
-<p style={{fontSize:"12px",color:"#6b7280"}}>
-Create a new vendor record
-</p>
-</div>
+          <Field label="Company Name">
+            <TextInput
+              value={form.company_name}
+              onChange={(e) => update("company_name", e.target.value)}
+              placeholder="Company Pvt Ltd"
+            />
+          </Field>
 
-{/* Basic Info */}
+          <Field label="Business Type">
+            <SelectInput
+              value={form.business_type}
+              onChange={(e) => update("business_type", e.target.value)}
+              placeholder="Select Business Type"
+              options={businessTypes.map((t) => ({ value: t, label: t }))}
+            />
+          </Field>
 
-<Section title="Basic Information" >
-<div style={grid2}>
-
-<Field label="Vendor Name" required>
-<TextInput
-value={form.vendor_name}
-onChange={(e)=>update("vendor_name",e.target.value)}
-placeholder="Supplier name"
+          <Field label="Opening Balance">
+          <TextInput
+  type="number"
+  value={form.opening_balance === 0 ? "" : form.opening_balance}
+  onChange={(e) => update("opening_balance", Number(e.target.value))}
+  placeholder="0"
 />
-</Field>
+          </Field>
+        </div>
+      </Section>
 
-<Field label="Company Name">
-<TextInput
-value={form.company_name}
-onChange={(e)=>update("company_name",e.target.value)}
-placeholder="Company Pvt Ltd"
-/>
-</Field>
+      {/* Tax & Identity */}
+      <Section title="Tax & Identity">
+        <div style={grid2}>
+          <Field label="GSTIN">
+            <CharBoxInput value={form.vendor_gstin} onChange={(v) => update("vendor_gstin", v)} length={15} />
+            {form.vendor_gstin.length === 15 && (
+              <button type="button" onClick={() => update("vendor_pan", form.vendor_gstin.substring(2, 12))}
+                style={{ marginTop: "6px", background: "none", border: "none", color: "#3b82f6", fontSize: "11.5px", fontWeight: 600, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                Auto-fill PAN from GSTIN
+              </button>
+            )}
+            <ErrorMsg field="vendor_gstin" errors={errors} />
+            {form.vendor_gstin.length === 15 && validateGST(form.vendor_gstin) && (
+              <span style={{ fontSize: "11px", color: "#16a34a", marginTop: "3px", display: "block" }}>✓ Valid GSTIN</span>
+            )}
+          </Field>
 
-<Field label="Business Type">
-<SelectInput
-value={form.business_type}
-onChange={(e)=>update("business_type",e.target.value)}
-placeholder="Select Business Type"
-options={businessTypes.map(t=>({value:t,label:t}))}
-/>
-</Field>
+          <Field label="PAN">
+            <CharBoxInput value={form.vendor_pan} onChange={(v) => update("vendor_pan", v)} length={10} />
+            <ErrorMsg field="vendor_pan" errors={errors} />
+            {form.vendor_pan.length === 10 && validatePAN(form.vendor_pan) && (
+              <span style={{ fontSize: "11px", color: "#16a34a", marginTop: "3px", display: "block" }}>✓ Valid PAN</span>
+            )}
+          </Field>
+        </div>
+      </Section>
 
-</div>
-</Section>
+      {/* Contact Details */}
+      <Section title="Contact Details">
+        <div style={grid2}>
+          <Field label="Mobile Number" required>
+            <CharBoxInput value={form.vendor_phone} onChange={(v) => update("vendor_phone", v)} length={10} numericOnly />
+            <ErrorMsg field="vendor_phone" errors={errors} />
+          </Field>
 
-{/* Tax */}
+          <Field label="Alternate Mobile">
+            <CharBoxInput value={form.vendor_alt_phone} onChange={(v) => update("vendor_alt_phone", v)} length={10} numericOnly />
+          </Field>
 
-<Section title="Tax & Identity" >
-<div style={grid2}>
+          <Field label="Email Address">
+            <TextInput
+              type="email"
+              value={form.vendor_email}
+              onChange={(e) => update("vendor_email", e.target.value)}
+              placeholder="vendor@company.com"
+            />
+            <ErrorMsg field="vendor_email" errors={errors} />
+          </Field>
 
-<Field label="GSTIN">
-<TextInput
-value={form.vendor_gstin}
-onChange={(e)=>update("vendor_gstin",e.target.value.toUpperCase())}
-placeholder="GSTIN"
-/>
-</Field>
+          <Field label="Website">
+            <TextInput
+              value={form.vendor_website}
+              onChange={(e) => update("vendor_website", e.target.value)}
+              placeholder="https://www.vendor.com"
+            />
+          </Field>
+        </div>
+      </Section>
 
-<Field label="PAN">
-<TextInput
-value={form.vendor_pan}
-onChange={(e)=>update("vendor_pan",e.target.value.toUpperCase())}
-placeholder="PAN"
-/>
-</Field>
+      {/* Address */}
+      <Section title="Address">
+        <div style={grid2}>
+          <Field label="Address Line 1" >
+            <TextInput
+              value={form.vendor_address_line1}
+              onChange={(e) => update("vendor_address_line1", e.target.value)}
+              placeholder="Building, Street, Area"
+            />
+            <ErrorMsg field="vendor_address_line1" errors={errors} />
+          </Field>
 
-</div>
-</Section>
+          <Field label="Address Line 2">
+            <TextInput
+              value={form.vendor_address_line2}
+              onChange={(e) => update("vendor_address_line2", e.target.value)}
+              placeholder="Landmark (optional)"
+            />
+          </Field>
 
-{/* Contact */}
+          <Field label="City" >
+            <TextInput
+              value={form.vendor_city}
+              onChange={(e) => update("vendor_city", e.target.value)}
+              placeholder="Mumbai"
+            />
+            <ErrorMsg field="vendor_city" errors={errors} />
+          </Field>
 
-<Section title="Contact Details" >
-<div style={grid2}>
+          <Field label="State" required>
+            <SelectInput
+              value={form.vendor_state}
+              onChange={(e) => update("vendor_state", e.target.value)}
+              placeholder="Select State"
+              options={indianStates.map((s) => ({ value: s.name, label: s.name }))}
+            />
+            <ErrorMsg field="vendor_state" errors={errors} />
+          </Field>
 
-<Field label="Mobile Number">
-<TextInput
-value={form.vendor_phone}
-onChange={(e)=>update("vendor_phone",e.target.value)}
-placeholder="9876543210"
-/>
-</Field>
+          <Field label="State Code">
+            <TextInput value={form.vendor_state_code} readOnly onChange={() => {}} placeholder="27" />
+          </Field>
 
-<Field label="Alternate Mobile">
-<TextInput
-value={form.vendor_alt_phone}
-onChange={(e)=>update("vendor_alt_phone",e.target.value)}
-placeholder="Optional"
-/>
-</Field>
+          <Field label="Pincode" >
+            <TextInput
+              value={form.vendor_pincode}
+              onChange={(e) => update("vendor_pincode", e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+              placeholder="400001"
+            />
+            <ErrorMsg field="vendor_pincode" errors={errors} />
+          </Field>
+        </div>
+      </Section>
 
-<Field label="Email">
-<TextInput
-type="email"
-value={form.vendor_email}
-onChange={(e)=>update("vendor_email",e.target.value)}
-placeholder="vendor@email.com"
-/>
-</Field>
+      {/* Footer Actions */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingBottom: "40px" }}>
+        <button type="button"
+          style={{ padding: "11px 28px", border: "1.5px solid #e5e7eb", borderRadius: "8px", background: "#f8fafc", fontSize: "13.5px", fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+          Cancel
+        </button>
+        <button type="button" onClick={handleSave}
+          style={{ padding: "11px 28px", border: "none", borderRadius: "8px", background: "#1e3a5f", fontSize: "13.5px", fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: "0.3px" }}>
+          Save Vendor
+        </button>
+      </div>
 
-<Field label="Website">
-<TextInput
-value={form.vendor_website}
-onChange={(e)=>update("vendor_website",e.target.value)}
-placeholder="https://"
-/>
-</Field>
-
-</div>
-</Section>
-
-{/* Address */}
-
-<Section title="Address" >
-<div style={grid2}>
-
-<Field label="Address Line 1">
-<TextInput
-value={form.vendor_address_line1}
-onChange={(e)=>update("vendor_address_line1",e.target.value)}
-/>
-</Field>
-
-<Field label="Address Line 2">
-<TextInput
-value={form.vendor_address_line2}
-onChange={(e)=>update("vendor_address_line2",e.target.value)}
-/>
-</Field>
-
-<Field label="City">
-<TextInput
-value={form.vendor_city}
-onChange={(e)=>update("vendor_city",e.target.value)}
-/>
-</Field>
-
-<Field label="State">
-<SelectInput
-value={form.vendor_state}
-onChange={(e)=>update("vendor_state",e.target.value)}
-placeholder="Select State"
-options={indianStates.map(s=>({value:s.name,label:s.name}))}
-/>
-</Field>
-
-<Field label="State Code">
-<TextInput
-value={form.vendor_state_code}
-readOnly
-/>
-</Field>
-
-<Field label="Pincode">
-<TextInput
-value={form.vendor_pincode}
-onChange={(e)=>update("vendor_pincode",e.target.value)}
-placeholder="400001"
-/>
-</Field>
-
-</div>
-</Section>
-
-{/* Footer */}
-
-<div style={{
-display:"flex",
-justifyContent:"flex-end",
-gap:"12px",
-paddingBottom:"40px"
-}}>
-
-<button style={{
-padding:"11px 28px",
-border:"1.5px solid #e5e7eb",
-borderRadius:"8px",
-background:"#f8fafc"
-}}>
-Cancel
-</button>
-
-<button onClick={handleSave} style={{
-padding:"11px 28px",
-border:"none",
-borderRadius:"8px",
-background:"#1e3a5f",
-color:"#fff",
-fontWeight:700
-}}>
-💾 Save Vendor
-</button>
-
-</div>
-
-</div>
-);
+    </div>
+  );
 }

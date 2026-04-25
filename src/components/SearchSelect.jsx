@@ -7,16 +7,16 @@ export default function SearchSelect({
   placeholder
 }) {
 
- const formatted = (options || []).map((o) => ({
-  value: o,
-  label: o
+const formatted = (options || []).map((o) => ({
+  value: o.value || o,
+  label: o.label || o
 }));
 
   return (
     <Select
       options={formatted}
       value={formatted.find((opt) => opt.value === value) || null}
-      onChange={(selected) => onChange(selected.value)}
+     onChange={(selected) => onChange(selected ? selected.value : "")}
       placeholder={placeholder}
       isSearchable
       styles={{

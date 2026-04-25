@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 
 const indianStates = [
   { code: "01", name: "Jammu & Kashmir" }, { code: "02", name: "Himachal Pradesh" },
@@ -207,12 +208,29 @@ if (!form.customer_name.trim())
     return e;
   };
 
-  const handleSave = () => {
-    const e = validate();
-    if (Object.keys(e).length) { setErrors(e); return; }
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
-  };
+const handleSave = async () => {
+  const e = validate();
+  if (Object.keys(e).length) {
+    setErrors(e);
+    return;
+  }
+
+  try {
+    const res = await axios.post("http://localhost:8000/api/customers", form);
+
+    if (res.data.success) {
+      setSubmitted(true);
+
+      setTimeout(() => {
+        setSubmitted(false);
+        window.location.href = "/customer-list"; // redirect
+      }, 1000);
+    }
+
+  } catch (err) {
+    console.error("SAVE ERROR:", err);
+  }
+};
 
   const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" };
 

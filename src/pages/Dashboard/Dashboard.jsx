@@ -63,15 +63,6 @@ const navigate = useNavigate();
 
 return ( <div className="space-y-6">
 
-
-  {/* Page Heading */}
-  <div>
-    <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
-    <p className="text-sm text-gray-400">
-      A quick overview of your business finances.
-    </p>
-  </div>
-
   {/* Stats */}
   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
     <StatCard

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 import { FiPlus } from "react-icons/fi";
@@ -9,53 +10,7 @@ import Button from "../../components/Button";
 import Modal from "../../components/Modal";
 import PaymentSuccessScreen from "../Payment/PaymentSuccessScreen";
 
-const customers = [
-  {
-    id: 1,
-    name: "John Doe",
-    company: "AlphaWorks Ltd",
-    email: "john@alphaworks.com",
-    phone: "+1 202 555 0111",
-    address: "221B Baker Street, London",
-    outstanding: "₹12,500",
-  },
-  {
-    id: 2,
-    name: "Sarah Smith",
-    company: "BetaForge Inc",
-    email: "sarah@betaforge.com",
-    phone: "+1 202 555 0182",
-    address: "742 Evergreen Terrace, Springfield",
-    outstanding: "₹7,800",
-  },
-  {
-    id: 3,
-    name: "Michael Brown",
-    company: "TechNova Solutions",
-    email: "michael@technova.com",
-    phone: "+1 202 555 0134",
-    address: "12 Silicon Valley Rd, California",
-    outstanding: "₹4,250",
-  },
-  {
-    id: 4,
-    name: "Emily Johnson",
-    company: "Skyline Enterprises",
-    email: "emily@skyline.com",
-    phone: "+1 202 555 0199",
-    address: "88 Market Street, New York",
-    outstanding: "₹15,900",
-  },
-  {
-    id: 5,
-    name: "David Wilson",
-    company: "GreenLeaf Pvt Ltd",
-    email: "david@greenleaf.com",
-    phone: "+1 202 555 0175",
-    address: "45 MG Road, Bangalore",
-    outstanding: "₹2,100",
-  },
-];
+
 
 const columns = [
   { key: "sr", label: "Sr No" },
@@ -68,6 +23,24 @@ const columns = [
 
 const CustomerList = () => {
   const navigate = useNavigate();
+
+  const [customers, setCustomers] = useState([]);
+
+useEffect(() => {
+  fetchCustomers();
+}, []);
+
+const fetchCustomers = async () => {
+  try {
+    const res = await axios.get("http://localhost:8000/api/customers");
+
+    if (res.data.success) {
+      setCustomers(res.data.data);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -129,43 +102,56 @@ const CustomerList = () => {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">All Customers</h1>
-          <p className="text-sm text-gray-400">Manage all your customers in one place.</p>
-        </div>
+      <div className="flex items-center justify-end">
+  
 
-        <Button
-          variant="navy"
-          size="md"
-          className="flex items-center gap-2"
-          onClick={() => navigate("/customers")}
-        >
-          <FiPlus size={16} />
-          Add Customer
-        </Button>
+     
       </div>
 
       {/* Customer Table */}
-      <Table
-        columns={columns}
-        data={customers.map((c, index) => ({ ...c, sr: index + 1 }))}
-        searchPlaceholder="Search customers..."
-        onRowClick={(row) => navigate(`/customers/${row.id}`)}
-        renderActions={(row) => (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedCustomer(row);
-              setShowPayModal(true);
-            }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-green-600 border border-green-200 hover:bg-green-50 transition"
-          >
-<TbWallet size={15} />            Pay
-          </button>
-        )}
-        onDelete={(row) => console.log("Delete customer:", row)}
-      />
+    <Table
+  columns={columns}
+data={customers.map((c, index) => ({
+  sr: index + 1,
+  id: c._id,
+  name: `${c.first_name} ${c.last_name}`,
+  company: c.company_name,
+  address: c.customer_address_line1,
+  phone: c.customer_phone,
+  outstanding: "₹0",
+}))}
+  searchPlaceholder="Search customers..."
+
+  headerActions={
+    <Button
+      variant="navy"
+      size="sm"
+      className="flex items-center gap-2"
+      onClick={() => navigate("/customers")}
+    >
+      <FiPlus size={14} />
+      Add Customer
+    </Button>
+  }
+
+  onRowClick={(row) => navigate(`/customers/${row.id}`)}
+
+  renderActions={(row) => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedCustomer(row);
+        setShowPayModal(true);
+      }}
+      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-green-600 border border-green-200 hover:bg-green-50 transition"
+    >
+      <TbWallet size={15} />
+      Pay
+    </button>
+  )}
+
+  onDelete={(row) => console.log("Delete customer:", row)}
+/>
 
       {/* Payment Modal */}
       {showPayModal && (
